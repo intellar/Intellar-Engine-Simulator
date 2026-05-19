@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Simulator: Run (sans débogueur)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/build/Release/engine_sim_demo.exe",
+            "runtimeArgs": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "CMake: build simulator"
+        },
+        {
+            "name": "Simulator: Run + strip Engine",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/build/Release/engine_sim_demo.exe",
+            "runtimeArgs": [
+                "data",
+                "${workspaceFolder}/../Intellar-Engine/assets/expression-chat-5-240x240.bin"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "CMake: build simulator"
+        }
+    ]
+}
