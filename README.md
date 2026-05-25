@@ -70,15 +70,16 @@ Headers : `include/Drivers/LCD.h`
 
 Stubs (no-op) : `loadRobotEyeRes`, `showRobotEyes`, `updateLCD`, etc.
 
-## Intégration CyberAnima
+## CyberAnima (interactions sur PC)
 
-Sur PC, compilez avec :
+Si **Intellar-CyberAnima** est en dépôt frère, CMake produit aussi `cyberanima_sim.exe` :
 
-```ini
-build_flags = -I ../Intellar-Engine-Simulator/include -DENGINE_SIM=1
+```powershell
+cmake --build build --config Release
+.\build\Release\cyberanima_sim.exe ..\Intellar-CyberAnima\data
 ```
 
-et liez `src/Drivers/LCD.cpp` du simulateur au lieu des sources Engine.
+Run and Debug → **CyberAnima: Run (simulateur)**. Voir le README CyberAnima pour les contrôles (clic = tap, touches 1–6 = états).
 
 ## PlatformIO (optionnel)
 

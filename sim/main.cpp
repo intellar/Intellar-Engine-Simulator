@@ -80,7 +80,7 @@ void printHelp() {
         "Autres modes Engine (pas encore dans le simulateur) :\n"
         "  - Yeux OLED proceduraux (eye_animation) -> ecran SSD1306 separe\n"
         "  - RobotEye (image_giant.bin) -> showRobotEyes a implementer\n"
-        "  - MJPEG -> MjpegPlayer a implementer\n"
+        "  - MJPEG -> cyberanima_sim touches 7-9 (anim1..3.mjpeg)\n"
         "\n");
 }
 

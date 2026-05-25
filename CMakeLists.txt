@@ -23,10 +23,43 @@ target_include_directories(engine_sim_lcd PUBLIC include)
 target_compile_definitions(engine_sim_lcd PUBLIC SDL_MAIN_HANDLED)
 target_link_libraries(engine_sim_lcd PUBLIC SDL2::SDL2)
 
+add_library(engine_sim_mjpeg STATIC src/Drivers/MjpegPlayer.cpp)
+target_include_directories(engine_sim_mjpeg PUBLIC include)
+target_include_directories(engine_sim_mjpeg PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+target_link_libraries(engine_sim_mjpeg PUBLIC engine_sim_lcd)
+
 add_executable(engine_sim_demo sim/main.cpp)
 target_include_directories(engine_sim_demo PRIVATE include)
 target_compile_definitions(engine_sim_demo PRIVATE SDL_MAIN_HANDLED)
 target_link_libraries(engine_sim_demo PRIVATE engine_sim_lcd SDL2::SDL2)
+
+# CyberAnima — logique compagnon + affichage simulateur (dev rapide sans ESP32)
+set(CYBERANIMA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Intellar-CyberAnima")
+if(EXISTS "${CYBERANIMA_DIR}/src/Anima/AnimaApp.cpp")
+    add_executable(cyberanima_sim
+        "${CYBERANIMA_DIR}/sim/main.cpp"
+        "${CYBERANIMA_DIR}/sim/EngineHostSim.cpp"
+        "${CYBERANIMA_DIR}/sim/AnimaTouchBar.cpp"
+        "${CYBERANIMA_DIR}/sim/AnimaPlayerSim.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/AnimaApp.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/CompanionNeeds.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/CompanionEvolution.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/ScenarioDirector.cpp"
+    )
+    target_include_directories(cyberanima_sim PRIVATE
+        include
+        "${CYBERANIMA_DIR}/src"
+        "${CYBERANIMA_DIR}/sim"
+        "${CYBERANIMA_DIR}/sim/platform"
+    )
+    target_compile_definitions(cyberanima_sim PRIVATE CYBERANIMA_SIM SDL_MAIN_HANDLED)
+    target_link_libraries(cyberanima_sim PRIVATE engine_sim_lcd engine_sim_mjpeg SDL2::SDL2)
+    add_custom_command(
+        TARGET cyberanima_sim POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:cyberanima_sim>
+        COMMENT "Deploy SDL2.dll beside cyberanima_sim"
+    )
+endif()
 
 # Copier le répertoire data/ à côté de l'exécutable (optionnel)
 add_custom_command(

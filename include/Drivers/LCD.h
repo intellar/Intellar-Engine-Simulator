@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+struct SDL_Renderer;
+
 /**
  * API d'affichage compatible Intellar-Engine (ILI9341 paysage 320×240).
  * Implémentation PC : SDL2 — voir src/Drivers/LCD.cpp
@@ -37,6 +39,8 @@ void setAnimation(const char* filename, DisplayIndex display = DisplayIndex::LEF
 void updateLCD();
 void showCatFace(int leftIndex, int rightIndex);
 void pushVideo565(DisplayIndex which, const uint16_t* rgb565);
+/** Framebuffer plein écran 320×240 RGB565 (MJPEG, etc.). */
+void pushScreen565(const uint16_t* rgb565);
 void loadRobotEyeRes(const char* filename);
 void showRobotEyes(float normX, float normY, const uint16_t* grid = nullptr);
 bool isRobotEyeResourceReady();
@@ -52,7 +56,12 @@ bool getIli9341TouchScreenPos(int16_t* outX, int16_t* outY);
 /** Traite clavier / souris SDL ; retourne false si l'utilisateur ferme la fenêtre. */
 bool pumpEvents();
 
+/** Dessin par-dessus la fenêtre SDL après le framebuffer (simulateur, optionnel). */
+using SimOverlayDrawFn = void (*)(::SDL_Renderer* renderer, int windowScale, void* userdata);
+void setSimOverlayDraw(SimOverlayDrawFn fn, void* userdata = nullptr);
+
 /** Répertoire des assets (défaut : ./data). */
 void setDataDirectory(const char* path);
+const char* getDataDirectory();
 
 }  // namespace Drivers

@@ -24,11 +24,17 @@ SDL_Texture*  g_texture  = nullptr;
 bool g_initialized = false;
 bool g_quit          = false;
 
-std::string g_dataDir = "data";
+std::string g_dataDir = "data";  // partagé avec MjpegPlayer.cpp
 
 int  g_mouseX = -1;
 int  g_mouseY = -1;
 bool g_mouseDown = false;
+bool g_mousePressedLatch = false;
+int  g_mouseLatchX = -1;
+int  g_mouseLatchY = -1;
+
+Drivers::SimOverlayDrawFn g_overlayDraw     = nullptr;
+void*                     g_overlayUserdata = nullptr;
 
 std::vector<uint16_t> g_screen;  // 320×240 RGB565
 
@@ -135,6 +141,9 @@ void presentScreen() {
                       Drivers::kScreenWidth * static_cast<int>(sizeof(uint32_t)));
     SDL_RenderClear(g_renderer);
     SDL_RenderCopy(g_renderer, g_texture, nullptr, nullptr);
+    if (g_overlayDraw) {
+        g_overlayDraw(g_renderer, kScale, g_overlayUserdata);
+    }
     SDL_RenderPresent(g_renderer);
 }
 
@@ -153,6 +162,15 @@ namespace Drivers {
 
 void setDataDirectory(const char* path) {
     if (path && path[0]) g_dataDir = path;
+}
+
+const char* getDataDirectory() {
+    return g_dataDir.c_str();
+}
+
+void setSimOverlayDraw(SimOverlayDrawFn fn, void* userdata) {
+    g_overlayDraw     = fn;
+    g_overlayUserdata = userdata;
 }
 
 bool pumpEvents() {
@@ -176,6 +194,9 @@ bool pumpEvents() {
                 g_mouseDown = true;
                 g_mouseX    = e.button.x / kScale;
                 g_mouseY    = e.button.y / kScale;
+                g_mousePressedLatch = true;
+                g_mouseLatchX = g_mouseX;
+                g_mouseLatchY = g_mouseY;
                 break;
             case SDL_MOUSEBUTTONUP:
                 g_mouseDown = false;
@@ -284,6 +305,15 @@ void pushVideo565(DisplayIndex which, const uint16_t* rgb565) {
     presentScreen();
 }
 
+void pushScreen565(const uint16_t* rgb565) {
+    if (!g_initialized || !rgb565) return;
+    const size_t n = static_cast<size_t>(kScreenWidth * kScreenHeight);
+    if (g_screen.size() < n) g_screen.resize(n);
+    std::memcpy(g_screen.data(), rgb565, n * sizeof(uint16_t));
+    if (g_mouseDown && g_mouseX >= 0) drawTouchMarker(g_mouseX, g_mouseY);
+    presentScreen();
+}
+
 void loadRobotEyeRes(const char* filename) { (void)filename; }
 
 void showRobotEyes(float normX, float normY, const uint16_t* grid) {
@@ -317,18 +347,23 @@ void drawTftTouchFeedback() {
 
 bool getIli9341TouchScreenPos(int16_t* outX, int16_t* outY) {
     if (!g_initialized || !outX || !outY) return false;
-    if (g_mouseX < 0 || g_mouseY < 0) return false;
-    int x = g_mouseX;
-    int y = g_mouseY;
-    x     = Drivers::kScreenWidth - 1 - x;
-    y     = Drivers::kScreenHeight - 1 - y;
+
+    const bool latch = g_mousePressedLatch;
+    g_mousePressedLatch = false;
+
+    const int rawX = latch ? g_mouseLatchX : g_mouseX;
+    const int rawY = latch ? g_mouseLatchY : g_mouseY;
+    if (rawX < 0 || rawY < 0) return false;
+
+    int x = Drivers::kScreenWidth  - 1 - rawX;
+    int y = Drivers::kScreenHeight - 1 - rawY;
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    if (x >= Drivers::kScreenWidth) x = Drivers::kScreenWidth - 1;
+    if (x >= Drivers::kScreenWidth)  x = Drivers::kScreenWidth  - 1;
     if (y >= Drivers::kScreenHeight) y = Drivers::kScreenHeight - 1;
     *outX = static_cast<int16_t>(x);
     *outY = static_cast<int16_t>(y);
-    return g_mouseDown;
+    return g_mouseDown || latch;
 }
 
 }  // namespace Drivers

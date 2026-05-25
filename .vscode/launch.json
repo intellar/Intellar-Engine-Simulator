@@ -13,6 +13,19 @@
             "preLaunchTask": "CMake: build simulator"
         },
         {
+            "name": "CyberAnima: Run (simulateur)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/build/Release/cyberanima_sim.exe",
+            "runtimeArgs": [
+                "${workspaceFolder}/../Intellar-CyberAnima/data"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "CMake: build simulator"
+        },
+        {
             "name": "Simulator: Run + strip Engine",
             "type": "node",
             "request": "launch",
