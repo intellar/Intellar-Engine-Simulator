@@ -45,6 +45,8 @@ if(EXISTS "${CYBERANIMA_DIR}/src/Anima/AnimaApp.cpp")
         "${CYBERANIMA_DIR}/src/Anima/CompanionNeeds.cpp"
         "${CYBERANIMA_DIR}/src/Anima/CompanionEvolution.cpp"
         "${CYBERANIMA_DIR}/src/Anima/ScenarioDirector.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/SkelLoader.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/SkeletalPlayer.cpp"
     )
     target_include_directories(cyberanima_sim PRIVATE
         include
