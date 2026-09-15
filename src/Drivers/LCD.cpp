@@ -260,10 +260,17 @@ void clearLCD() {
 
 void drawTouchMarker(int x, int y) {
     if (!g_initialized || x < 0 || y < 0) return;
+
+    // (x, y) arrivent en coordonnees ILI9341 (y = 0 en bas de l'ecran, x
+    // miroir) ; le framebuffer du simulateur est en coordonnees ecran. Sans
+    // cette inversion le marqueur s'affichait en miroir par rapport au clic.
+    const int cx = Drivers::kScreenWidth  - 1 - x;
+    const int cy = Drivers::kScreenHeight - 1 - y;
+
     for (int dy = -3; dy <= 3; dy++) {
         for (int dx = -3; dx <= 3; dx++) {
-            const int px = x + dx;
-            const int py = y + dy;
+            const int px = cx + dx;
+            const int py = cy + dy;
             if (px >= 0 && px < Drivers::kScreenWidth && py >= 0 && py < Drivers::kScreenHeight)
                 g_screen[static_cast<size_t>(py * kScreenWidth + px)] =
                     static_cast<uint16_t>(TFT_YELLOW);

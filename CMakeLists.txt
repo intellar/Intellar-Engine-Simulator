@@ -70,11 +70,16 @@ endif()
 if(EXISTS "${CYBERANIMA_DIR}/test/test_scenario.cpp")
     add_executable(cyberanima_tests
         "${CYBERANIMA_DIR}/test/test_scenario.cpp"
+        "${CYBERANIMA_DIR}/sim/AnimaTouchBar.cpp"
         "${CYBERANIMA_DIR}/src/Anima/CompanionNeeds.cpp"
         "${CYBERANIMA_DIR}/src/Anima/CompanionEvolution.cpp"
         "${CYBERANIMA_DIR}/src/Anima/ScenarioDirector.cpp"
     )
-    target_include_directories(cyberanima_tests PRIVATE "${CYBERANIMA_DIR}/src")
+    target_include_directories(cyberanima_tests PRIVATE
+        "${CYBERANIMA_DIR}/src"
+        "${CYBERANIMA_DIR}/sim"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    )
     target_compile_definitions(cyberanima_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_options(cyberanima_tests PRIVATE /W4)
 endif()
