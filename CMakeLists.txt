@@ -40,6 +40,7 @@ if(EXISTS "${CYBERANIMA_DIR}/src/Anima/AnimaApp.cpp")
         "${CYBERANIMA_DIR}/sim/main.cpp"
         "${CYBERANIMA_DIR}/sim/EngineHostSim.cpp"
         "${CYBERANIMA_DIR}/sim/AnimaTouchBar.cpp"
+        "${CYBERANIMA_DIR}/sim/AnimaHud.cpp"
         "${CYBERANIMA_DIR}/sim/AnimaPlayerSim.cpp"
         "${CYBERANIMA_DIR}/src/Anima/AnimaApp.cpp"
         "${CYBERANIMA_DIR}/src/Anima/CompanionNeeds.cpp"
