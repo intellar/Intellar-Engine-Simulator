@@ -5,6 +5,7 @@
 #include "stb_image.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -20,17 +21,15 @@ namespace Mjpeg {
 namespace {
 
 constexpr size_t kJpegMaxBytes  = 512 * 1024;
-constexpr int    kNominalFps    = 15;
-constexpr int    kTailFrames    = 4;   // last N frames looped as idle micro-loop
+constexpr int    kNominalFps    = 15;   // aligné sur les clips (ffmpeg -r 15)
+constexpr int    kCanvas        = 240;  // stage 240x240 (identique carte ILI9341)
 
 std::ifstream g_file;
 std::vector<uint8_t>  g_jpegBuf;
-std::vector<uint16_t> g_screen565;
+std::vector<uint16_t> g_canvas565;      // stage 240x240 RGB565
 bool           g_playing       = false;
 bool           g_loop          = false;
 bool           g_finishedFlag  = false;
-bool           g_tailLooping   = false;  // looping tail after story clip ends
-std::streampos g_tailLoopPos   = 0;      // file offset of tail loop start
 uint32_t       g_lastFrameMs   = 0;
 std::string    g_openPath;
 
@@ -75,7 +74,12 @@ uint16_t rgb888To565(uint8_t r, uint8_t g, uint8_t b) {
     return static_cast<uint16_t>(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
 }
 
-bool decodeJpegToScreen565(const uint8_t* data, size_t len) {
+/**
+ * Décode un JPEG et le réduit dans le canvas 240x240 : proportions préservées,
+ * bandes noires si le cadre n'est pas carré — soit exactement le comportement
+ * de la carte (scaleContain240 de Drivers::Mjpeg dans l'Engine).
+ */
+bool decodeJpegToCanvas565(const uint8_t* data, size_t len) {
     int w = 0;
     int h = 0;
     int comp = 0;
@@ -86,34 +90,29 @@ bool decodeJpegToScreen565(const uint8_t* data, size_t len) {
         return false;
     }
 
-    const size_t outCount =
-        static_cast<size_t>(kScreenWidth) * static_cast<size_t>(kScreenHeight);
-    g_screen565.assign(outCount, 0);
+    const size_t canvasElts = static_cast<size_t>(kCanvas) * static_cast<size_t>(kCanvas);
+    if (g_canvas565.size() < canvasElts) {
+        g_canvas565.resize(canvasElts);
+    }
+    std::fill(g_canvas565.begin(), g_canvas565.end(), static_cast<uint16_t>(0));
 
-    if (w == kScreenWidth && h == kScreenHeight) {
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                const size_t si = static_cast<size_t>(y * w + x) * 3;
-                g_screen565[static_cast<size_t>(y * kScreenWidth + x)] =
-                    rgb888To565(rgb[si], rgb[si + 1], rgb[si + 2]);
-            }
+    const float sc = std::min(static_cast<float>(kCanvas - 1) / static_cast<float>(w),
+                              static_cast<float>(kCanvas - 1) / static_cast<float>(h));
+    const int nw   = std::max(1, static_cast<int>(std::lround(static_cast<double>(w) * sc)));
+    const int nh   = std::max(1, static_cast<int>(std::lround(static_cast<double>(h) * sc)));
+    const int offx = (kCanvas - nw) / 2;
+    const int offy = (kCanvas - nh) / 2;
+
+    for (int dy = 0; dy < nh; dy++) {
+        const int sy =
+            std::min(h - 1, static_cast<int>((static_cast<int64_t>(dy) * h + nh / 2) / nh));
+        for (int dx = 0; dx < nw; dx++) {
+            const int sx =
+                std::min(w - 1, static_cast<int>((static_cast<int64_t>(dx) * w + nw / 2) / nw));
+            const size_t si = static_cast<size_t>(sy * w + sx) * 3;
+            g_canvas565[static_cast<size_t>(offy + dy) * kCanvas + static_cast<size_t>(offx + dx)] =
+                rgb888To565(rgb[si], rgb[si + 1], rgb[si + 2]);
         }
-    } else {
-        for (int dy = 0; dy < kScreenHeight; dy++) {
-            const int sy = std::min(h - 1, dy * h / kScreenHeight);
-            for (int dx = 0; dx < kScreenWidth; dx++) {
-                const int sx = std::min(w - 1, dx * w / kScreenWidth);
-                const size_t si = static_cast<size_t>(sy * w + sx) * 3;
-                g_screen565[static_cast<size_t>(dy * kScreenWidth + dx)] =
-                    rgb888To565(rgb[si], rgb[si + 1], rgb[si + 2]);
-            }
-        }
-        std::fprintf(stderr,
-                     "Mjpeg: frame %dx%d redimensionnee en %dx%d\n",
-                     w,
-                     h,
-                     kScreenWidth,
-                     kScreenHeight);
     }
 
     stbi_image_free(rgb);
@@ -130,40 +129,15 @@ uint32_t frameIntervalMs() {
     return static_cast<uint32_t>((1000 + kNominalFps - 1) / kNominalFps);
 }
 
-// Scans the open file and returns the byte offset where the tail loop begins
-// (i.e. the start of the last kTailFrames frames).  Leaves the file rewound.
-std::streampos findTailLoopPos(std::ifstream& f) {
-    std::vector<std::streampos> offsets;
-    offsets.reserve(256);
-
-    f.clear();
-    f.seekg(0);
-    while (f.good()) {
-        const std::streampos pos = f.tellg();
-        const size_t n = readOneJpeg(f, g_jpegBuf.data(), g_jpegBuf.size());
-        if (n == 0) break;
-        offsets.push_back(pos);
-    }
-
-    f.clear();
-    f.seekg(0);
-
-    if (offsets.empty()) return std::streampos(0);
-    const int startIdx = std::max(0, static_cast<int>(offsets.size()) - kTailFrames);
-    return offsets[static_cast<size_t>(startIdx)];
-}
-
 }  // namespace
 
 bool isPlaying() { return g_playing; }
-
-bool isActive() { return g_playing || g_tailLooping; }
 
 bool loopEnabled() { return g_loop; }
 
 void setLoop(bool enabled) { g_loop = enabled; }
 
-bool consumeFinished() {
+bool takeFinished() {
     if (!g_finishedFlag) return false;
     g_finishedFlag = false;
     return true;
@@ -187,11 +161,7 @@ bool playFile(const char* path, bool loop) {
         g_jpegBuf.resize(kJpegMaxBytes);
     }
 
-    // Pre-scan to find the tail-loop start offset (used for non-looping clips).
-    g_tailLoopPos = loop ? std::streampos(0) : findTailLoopPos(g_file);
-
     g_loop         = loop;
-    g_tailLooping  = false;
     g_finishedFlag = false;
     g_openPath     = resolved;
     g_playing      = true;
@@ -207,15 +177,13 @@ bool playByName(const char* basename, bool loop) {
 
 void stop() {
     closeFile();
-    g_playing      = false;
-    g_tailLooping  = false;
-    g_tailLoopPos  = 0;
-    g_lastFrameMs  = 0;
+    g_playing     = false;
+    g_lastFrameMs = 0;
     g_openPath.clear();
 }
 
 void service(uint32_t nowMs) {
-    if (!g_playing && !g_tailLooping) return;
+    if (!g_playing) return;
     if (!g_file.is_open()) return;
 
     const uint32_t interval = frameIntervalMs();
@@ -225,40 +193,35 @@ void service(uint32_t nowMs) {
 
     if (n == 0) {
         if (g_loop) {
-            // Full-file loop (anim6 sleeping loop).
+            // Reboucle plein fichier (ex. anim6 : boucle de sommeil).
             g_file.clear();
             g_file.seekg(0);
             n = readOneJpeg(g_file, g_jpegBuf.data(), g_jpegBuf.size());
-        } else if (g_playing) {
-            // First EOF on a one-shot clip: notify game logic, start tail loop.
+        } else {
+            // Fin naturelle d'un clip one-shot : signal net via takeFinished(),
+            // l'image reste figée sur la dernière frame (comme sur la carte).
+            std::fprintf(stderr, "Mjpeg: fin clip %s\n", g_openPath.c_str());
             g_finishedFlag = true;
             g_playing      = false;
-            g_tailLooping  = true;
-            g_file.clear();
-            g_file.seekg(g_tailLoopPos);
-            n = readOneJpeg(g_file, g_jpegBuf.data(), g_jpegBuf.size());
-        } else if (g_tailLooping) {
-            // EOF during tail loop: wrap back to tail start.
-            g_file.clear();
-            g_file.seekg(g_tailLoopPos);
-            n = readOneJpeg(g_file, g_jpegBuf.data(), g_jpegBuf.size());
+            closeFile();
+            return;
         }
 
         if (n == 0) {
             std::fprintf(stderr, "Mjpeg: fin flux %s\n", g_openPath.c_str());
-            g_tailLooping = false;
+            g_playing = false;
             closeFile();
             return;
         }
     }
 
-    if (!decodeJpegToScreen565(g_jpegBuf.data(), n)) {
+    if (!decodeJpegToCanvas565(g_jpegBuf.data(), n)) {
         std::fprintf(stderr, "Mjpeg: decode JPEG echoue, frame saute\n");
         g_lastFrameMs = nowMs;
         return;
     }
 
-    pushScreen565(g_screen565.data());
+    pushVideo565(DisplayIndex::LEFT, g_canvas565.data());
     g_lastFrameMs = nowMs;
 }
 

@@ -6,13 +6,15 @@ namespace Drivers {
 namespace Mjpeg {
 
 bool isPlaying();
-/** Lecture en cours ou micro-boucle de fin de clip (idle visuel). */
-bool isActive();
 bool loopEnabled();
+/** Active/désactive la boucle explicitement (préférable à un toggle). */
 void setLoop(bool enabled);
-
-/** Vrai une fois après la fin naturelle d'un clip non bouclé ; remis à false par consumeFinished(). */
-bool consumeFinished();
+/**
+ * Vrai UNE seule fois après la fin naturelle d'un clip non bouclé.
+ * Drapeau consommé par l'appel ; réarmé par playFile().
+ * Sémantique alignée sur Drivers::Mjpeg de la carte (Intellar-Engine).
+ */
+bool takeFinished();
 
 /** Chemin absolu ou relatif au répertoire data (setDataDirectory). */
 bool playFile(const char* path, bool loop = false);
