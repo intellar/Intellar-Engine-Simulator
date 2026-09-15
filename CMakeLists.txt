@@ -64,6 +64,21 @@ if(EXISTS "${CYBERANIMA_DIR}/src/Anima/AnimaApp.cpp")
     )
 endif()
 
+# Tests hote de la logique CyberAnima (sans SDL, sans Arduino) :
+#   cmake --build build --config Release --target cyberanima_tests
+#   .\build\Release\cyberanima_tests.exe
+if(EXISTS "${CYBERANIMA_DIR}/test/test_scenario.cpp")
+    add_executable(cyberanima_tests
+        "${CYBERANIMA_DIR}/test/test_scenario.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/CompanionNeeds.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/CompanionEvolution.cpp"
+        "${CYBERANIMA_DIR}/src/Anima/ScenarioDirector.cpp"
+    )
+    target_include_directories(cyberanima_tests PRIVATE "${CYBERANIMA_DIR}/src")
+    target_compile_definitions(cyberanima_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_options(cyberanima_tests PRIVATE /W4)
+endif()
+
 # Copier le répertoire data/ à côté de l'exécutable (optionnel)
 add_custom_command(
     TARGET engine_sim_demo POST_BUILD
